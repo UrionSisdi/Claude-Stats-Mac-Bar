@@ -123,11 +123,16 @@ enum UsageAPI {
         // Newer shape: a flat list where weekly windows name the model they scope to.
         for entry in root["limits"] as? [[String: Any]] ?? [] {
             guard let percent = entry["percent"] as? Double else { continue }
-            if let active = entry["is_active"] as? Bool, !active { continue }
+            // `is_active` marks the window that is currently binding, not the ones that exist:
+            // a model-scoped weekly cap reads as inactive while the shared one is closer to
+            // its limit. Filtering on it would hide the per-model rows.
             let scope = entry["scope"] as? [String: Any]
             let scopedModel = scope?["model"] as? [String: Any]
             let name = (scopedModel?["display_name"] as? String) ?? (scopedModel?["id"] as? String)
-            let kind: UsageWindow.Kind = (entry["group"] as? String) == "five_hour" ? .session : .weekly
+            let group = entry["group"] as? String
+            let kind: UsageWindow.Kind = (group == "five_hour" || group == "session")
+                ? .session
+                : .weekly
             let candidate = UsageWindow(
                 kind: kind,
                 model: name,
