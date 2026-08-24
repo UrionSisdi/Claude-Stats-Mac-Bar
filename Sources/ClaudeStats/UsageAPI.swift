@@ -23,7 +23,11 @@ struct UsageWindow: Codable, Identifiable {
 }
 
 struct UsageSnapshot: Codable {
+    /// Where the numbers came from. Optional so an older cached file still decodes.
+    enum Source: String, Codable { case api, cli }
+
     var windows: [UsageWindow] = []
+    var source: Source? = .api
     var extraUsedCredits: Double?
     var extraLimit: Double?
     var fetchedAt = Date()

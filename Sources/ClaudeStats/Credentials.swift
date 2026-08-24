@@ -92,6 +92,14 @@ final class CredentialsProvider {
     private var cached: ClaudeCredentials?
     private var accessDenied = false
 
+    /// Drops the cached token so the next read goes back to the keychain — used after the
+    /// CLI has been asked to refresh its login.
+    func invalidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        cached = nil
+    }
+
     func credentials(userInitiated: Bool) throws -> ClaudeCredentials {
         lock.lock()
         defer { lock.unlock() }

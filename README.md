@@ -8,6 +8,12 @@ would have cost at API prices.
 **Subscription limits** — from `https://api.anthropic.com/api/oauth/usage`, the same source as
 `/usage` in the CLI: the 5-hour session window, the weekly cap, and per-model weekly windows
 (Opus, Fable, …) with reset times. The session percentage also sits next to the menu bar icon.
+Clicking any limit row switches the resets between time left and the clock time they happen at.
+
+When the stored token no longer works, the app asks the CLI instead of asking you to. First
+`claude auth status`, which makes the CLI renew the token it owns; if that is not enough, a
+throwaway `claude` session is driven through `/usage` and the numbers are read off its screen.
+Those readings are marked "via the CLI" in the footer.
 
 **Cost at API prices** — from local `~/.claude/projects/**/*.jsonl` logs: today, 7 days, 30 days,
 all time, plus a per-month breakdown and the top models over 30 days. Input, output, cache reads
@@ -40,6 +46,7 @@ Data refreshes every 10 minutes and when the menu opens.
 ```bash
 ./build/ClaudeStats.app/Contents/MacOS/ClaudeStats --dump            # local stats to stdout
 ./build/ClaudeStats.app/Contents/MacOS/ClaudeStats --dump --limits   # also fetch limits
+./build/ClaudeStats.app/Contents/MacOS/ClaudeStats --dump --cli      # exercise the CLI fallback
 ```
 
 ## Layout
@@ -50,6 +57,8 @@ Data refreshes every 10 minutes and when the menu opens.
 | `ScanCache.swift` | parse cache in `~/Library/Application Support/ClaudeStats` |
 | `Pricing.swift` | per-model prices per 1M tokens |
 | `UsageAPI.swift` | subscription limits request |
+| `ClaudeCLI.swift` | CLI fallback: token refresh, and a `/usage` session over a pty |
+| `UsageText.swift` | reading limit windows out of the CLI's screen |
 | `Credentials.swift` | OAuth token from the keychain |
 | `Currency.swift` | currency preference and daily USD/RUB rate |
 | `L10n.swift` | language preference and strings |

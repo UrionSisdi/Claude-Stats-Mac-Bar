@@ -2,6 +2,12 @@ import Foundation
 
 enum DebugDump {
     static func run() {
+        // `--cli` exercises the CLI fallback on its own; local scanning would only slow it down.
+        if CommandLine.arguments.contains("--cli") {
+            runCLI()
+            return
+        }
+
         let started = Date()
         var cache = ScanCache.load()
         let records = LocalUsage.scan(cache: &cache)
@@ -40,6 +46,31 @@ enum DebugDump {
             } catch {
                 print("Limits: \(error.localizedDescription)")
             }
+            semaphore.signal()
+        }
+        semaphore.wait()
+    }
+
+    /// Exercises the CLI fallback end to end: the cheap token refresh first, then a real
+    /// session whose `/usage` screen is parsed.
+    private static func runCLI() {
+        ClaudeCLI.trace = { print("  · \($0)") }
+        let started = Date()
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            print("claude auth status → loggedIn \(await ClaudeCLI.refreshLogin())")
+            do {
+                let snapshot = try await ClaudeCLI.usage()
+                for window in snapshot.windows {
+                    let resets = window.resetsAt
+                    print("\(window.title): \(Format.percent(window.percent)) · "
+                        + "\(Format.resets(resets) ?? "?") · "
+                        + "\(resets.map { Format.resetClock($0) ?? "?" } ?? "no reset")")
+                }
+            } catch {
+                print("failed: \(error.localizedDescription)")
+            }
+            print(String(format: "took %.1fs", -started.timeIntervalSinceNow))
             semaphore.signal()
         }
         semaphore.wait()

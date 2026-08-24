@@ -44,7 +44,10 @@ struct MenuView: View {
             header(L10n.s("Лимиты подписки", "Subscription limits"))
             if let snapshot = model.snapshot, !snapshot.windows.isEmpty {
                 ForEach(snapshot.windows) { window in
-                    LimitRow(window: window)
+                    LimitRow(
+                        window: window,
+                        resetStyle: model.resetStyle,
+                        onToggleResetStyle: model.toggleResetStyle)
                 }
                 if let used = snapshot.extraUsedCredits, let limit = snapshot.extraLimit, limit > 0 {
                     caption("Extra usage: \(Format.money(used)) / \(Format.money(limit))")
@@ -127,6 +130,16 @@ struct MenuView: View {
                 .font(.system(size: 12))
 
             HStack(spacing: 10) {
+                caption(L10n.s("Сброс", "Resets"))
+                Spacer(minLength: 0)
+                Segments(
+                    options: ResetStyle.allCases,
+                    selection: model.resetStyle,
+                    title: \.title,
+                    onSelect: model.setResetStyle)
+            }
+
+            HStack(spacing: 10) {
                 Segments(
                     options: Language.allCases,
                     selection: model.language,
@@ -150,8 +163,11 @@ struct MenuView: View {
             }
             .font(.system(size: 12))
 
-            if let fetched = model.snapshot?.fetchedAt {
-                caption(L10n.s("Обновлено в \(Format.time(fetched))", "Updated at \(Format.time(fetched))"))
+            if let snapshot = model.snapshot {
+                let time = Format.time(snapshot.fetchedAt)
+                // Worth saying when the numbers came off the CLI's own screen instead of the API.
+                let via = snapshot.source == .cli ? L10n.s(" · через CLI", " · via the CLI") : ""
+                caption(L10n.s("Обновлено в \(time)\(via)", "Updated at \(time)\(via)"))
             }
         }
     }
@@ -258,6 +274,8 @@ private struct StatRow: View {
 
 private struct LimitRow: View {
     let window: UsageWindow
+    let resetStyle: ResetStyle
+    let onToggleResetStyle: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -265,10 +283,13 @@ private struct LimitRow: View {
                 Text(window.title)
                     .font(.system(size: 12))
                 Spacer(minLength: 4)
-                if let resets = Format.resets(window.resetsAt) {
+                if let resets = Format.reset(window.resetsAt, style: resetStyle) {
                     Text(resets)
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
+                        // The whole row toggles, but only the reset text hints at it.
+                        .help(L10n.s("Нажмите, чтобы переключить формат",
+                                     "Click to switch the format"))
                 }
                 Text(Format.percent(window.percent))
                     .font(.system(size: 12, weight: .medium))
@@ -284,6 +305,8 @@ private struct LimitRow: View {
             }
             .frame(height: 4)
         }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onToggleResetStyle)
     }
 
     private var color: Color {

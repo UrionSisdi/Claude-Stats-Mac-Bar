@@ -1,5 +1,30 @@
 import Foundation
 
+/// How a limit window's reset is shown: time left, or the wall clock time it happens at.
+enum ResetStyle: String, CaseIterable, Identifiable {
+    case remaining
+    case clock
+
+    var id: String { rawValue }
+
+    /// The labels are examples of the format itself, which explains them better than a name.
+    var title: String {
+        switch self {
+        case .remaining: L10n.s("через 2 ч", "in 2h")
+        case .clock: L10n.s("в 18:40", "at 18:40")
+        }
+    }
+
+    private static let key = "resetStyle"
+
+    static var preference: ResetStyle {
+        get { ResetStyle(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .remaining }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
+    }
+
+    var toggled: ResetStyle { self == .remaining ? .clock : .remaining }
+}
+
 enum Format {
     /// Costs are computed in USD and converted for display only.
     static func money(_ amountUSD: Double) -> String {
@@ -58,6 +83,32 @@ enum Format {
         }
         let days = Int(seconds / 86_400)
         return L10n.s("через \(days) дн", "in \(days)d")
+    }
+
+    /// A reset rendered in the currently preferred style.
+    static func reset(_ date: Date?, style: ResetStyle) -> String? {
+        style == .clock ? resetClock(date) : resets(date)
+    }
+
+    /// Wall clock time a limit window resets at: "в 18:40", "ср 18:40", "30 авг 23:00".
+    /// The weekly windows land days away, so the day is spelled out when it is not today.
+    static func resetClock(_ date: Date?) -> String? {
+        guard let date, date.timeIntervalSinceNow > 0 else { return nil }
+
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.locale = L10n.locale
+
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+            return L10n.s("в \(formatter.string(from: date))", "at \(formatter.string(from: date))")
+        }
+        if date.timeIntervalSinceNow < 6 * 86_400 {
+            formatter.dateFormat = "EEE HH:mm"
+            return formatter.string(from: date)
+        }
+        formatter.dateFormat = "d MMM HH:mm"
+        return formatter.string(from: date)
     }
 
     static func time(_ date: Date) -> String {
