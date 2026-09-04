@@ -7,17 +7,26 @@ struct MenuView: View {
 
     private let width: CGFloat = 360
 
-    /// Keep the popover inside the screen; scroll if the content is taller.
+    @State private var contentHeight: CGFloat = 0
+
+    /// The popover flips above the menu bar if it asks for more than the screen has.
     private var maxHeight: CGFloat {
-        (NSScreen.main?.visibleFrame.height ?? 800) - 24
+        (NSScreen.main?.visibleFrame.height ?? 800) - 40
     }
 
     var body: some View {
+        // Sized to the content, so nothing scrolls until the content really is
+        // taller than the screen.
         ScrollView {
             content
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: ContentHeightKey.self,
+                                           value: geometry.size.height)
+                })
         }
-        .frame(width: width)
-        .frame(maxHeight: maxHeight)
+        .scrollDisabled(contentHeight <= maxHeight)
+        .frame(width: width, height: min(max(contentHeight, 1), maxHeight))
+        .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
     }
 
     private var content: some View {
@@ -315,5 +324,12 @@ private struct LimitRow: View {
         case ..<85: .orange
         default: .red
         }
+    }
+}
+
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

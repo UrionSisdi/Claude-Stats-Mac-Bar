@@ -25,10 +25,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover.behavior = .transient
         popover.animates = false
-        popover.contentViewController = NSHostingController(rootView: MenuView(
+        let hosting = NSHostingController(rootView: MenuView(
             model: model,
             onRefresh: { [weak self] in self?.model.refresh(userInitiated: true) },
             onQuit: { NSApp.terminate(nil) }))
+        // The popover only samples the content size when the controller is set, so
+        // without this it keeps the size it had before the data arrived and clips
+        // (or flips off screen) once the view grows.
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
 
         cancellable = model.objectWillChange
             .receive(on: RunLoop.main)
